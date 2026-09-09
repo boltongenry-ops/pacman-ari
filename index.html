@@ -51,6 +51,20 @@
     color:#fff; font-size:26px; cursor:pointer; touch-action:manipulation;
   }
   #controls button:active { background:rgba(150,110,255,.5); }
+  #joystick {
+    display:none; width:140px; height:140px; border-radius:50%;
+    border:2px solid rgba(150,120,255,.5); background:radial-gradient(circle at 50% 50%, rgba(90,60,200,.35), rgba(20,10,60,.6));
+    margin:16px auto 4px; position:relative; touch-action:none; box-shadow:0 0 30px rgba(120,60,255,.3);
+  }
+  #stick {
+    position:absolute; left:50%; top:50%; width:60px; height:60px; border-radius:50%;
+    background:linear-gradient(180deg,#ffe93b,#ffb300); transform:translate(-50%,-50%);
+    box-shadow:0 4px 16px rgba(255,200,0,.5); pointer-events:none;
+  }
+  @media (pointer:coarse) {
+    #joystick { display:block; }
+    #controls { display:none; }
+  }
   #hint { margin-top:10px; color:#8f83b8; font-size:13px; text-align:center; }
   .kbd { display:inline-block; border:1px solid #555; border-bottom-width:3px; border-radius:6px; padding:1px 7px; background:#1a1a2e; color:#fff; font-size:12px; }
 </style>
@@ -77,6 +91,7 @@
   <button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button>
   <div></div><div></div><div></div>
 </div>
+<div id="joystick"><div id="stick"></div></div>
 <div id="hint">Пробел — пауза · звук 🔊 включается после старта</div>
 
 <script>
@@ -204,6 +219,36 @@ window.addEventListener('keydown', e=>{
 document.querySelectorAll('#controls button').forEach(b=>{
   b.addEventListener('pointerdown', e=>{ e.preventDefault(); setDir(b.dataset.d); });
 });
+// джойстик для сенсора
+(function(){
+  const joy = document.getElementById('joystick');
+  const stick = document.getElementById('stick');
+  if(!joy||!stick) return;
+  let activeId = null, cx = 0, cy = 0;
+  const R = 44;
+  function center(){ const r = joy.getBoundingClientRect(); cx = r.left + r.width/2; cy = r.top + r.height/2; }
+  function move(dx,dy){
+    const len = Math.hypot(dx,dy) || 1;
+    const cl = Math.min(len, R);
+    const nx = dx/len*cl, ny = dy/len*cl;
+    stick.style.transform = `translate(calc(-50% + ${nx}px), calc(-50% + ${ny}px))`;
+    if(len > 14){
+      if(Math.abs(dx) > Math.abs(dy)) setDir(dx>0?'right':'left');
+      else setDir(dy>0?'down':'up');
+    }
+  }
+  function reset(){ stick.style.transform='translate(-50%,-50%)'; activeId=null; }
+  joy.addEventListener('pointerdown', e=>{
+    e.preventDefault(); center(); activeId = e.pointerId;
+    try{ joy.setPointerCapture(activeId); }catch(_){}
+    move(e.clientX-cx, e.clientY-cy);
+  });
+  joy.addEventListener('pointermove', e=>{
+    if(e.pointerId!==activeId) return;
+    move(e.clientX-cx, e.clientY-cy);
+  });
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>joy.addEventListener(ev, reset));
+})();
 // свайп
 let touchStart=null;
 canvas.addEventListener('touchstart', e=>{ touchStart = e.touches[0]; }, {passive:true});
